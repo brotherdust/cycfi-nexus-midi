@@ -12,6 +12,7 @@
 #include "midi.hpp"
 #include "util.hpp"
 #include "MspFlash.h"
+#include "config/hardware_config.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -58,31 +59,8 @@ using namespace cycfi;
  *   - bank_select -1: momentary switch
  */
 
-/**
- * @section CONSTANTS
- *
- * Pin definitions and other constants used throughout the program.
- */
-int const ch9  = P2_0; // Digital input
-int const ch10 = P1_0; // Analog and digital input
-int const ch11 = P1_3; // Analog and digital input
-int const ch12 = P1_4; // Analog and digital input
-int const ch13 = P1_5; // Analog and digital input
-int const ch14 = P1_6; // Analog and digital input
-int const ch15 = P1_7; // Analog and digital input
-
-int const aux1 = P2_1; // Digital input
-int const aux2 = P2_2; // Digital input
-int const aux3 = P2_3; // Digital input
-int const aux4 = P2_4; // Digital input
-int const aux5 = P2_5; // Digital input
-int const aux6 = P2_6; // Digital input
-
-#ifdef NEXUS_TEST
-int const noise_window = 4;
-#else
-int const noise_window = 2;
-#endif
+// Hardware configuration is now in config/hardware_config.hpp
+using namespace nexus::config;
 
 /**
  * @section MIDI_STREAM
@@ -617,20 +595,8 @@ bank_select_controller                 bank_select_control;
  */
 void setup()
 {
-   pinMode(ch9 , INPUT_PULLUP);
-   pinMode(ch10, INPUT);
-   pinMode(ch11, INPUT);
-   pinMode(ch12, INPUT);
-   pinMode(ch13, INPUT);
-   pinMode(ch14, INPUT);
-   pinMode(ch15, INPUT);
-
-   pinMode(aux1, INPUT_PULLUP);
-   pinMode(aux2, INPUT_PULLUP);
-   pinMode(aux3, INPUT_PULLUP);
-   pinMode(aux4, INPUT_PULLUP);
-   pinMode(aux5, INPUT_PULLUP);
-   pinMode(aux6, INPUT_PULLUP);
+   // Initialize hardware pins
+   nexus::config::initialize_pins();
 
    midi_out.start();
 
@@ -677,15 +643,15 @@ void loop()
 #endif
 
 #ifdef NEXUS_TEST_VOLUME
-   volume_control(analog_read(ch10));
+   volume_control(nexus::config::analog_read(ch10));
 #endif
 
 #ifdef NEXUS_TEST_PITCH_BEND
-   pitch_bend(analog_read(ch10));
+   pitch_bend(nexus::config::analog_read(ch10));
 #endif
 
 #ifdef NEXUS_TEST_PROGRAM_CHANGE
-   program_change(analog_read(ch15));
+   program_change(nexus::config::analog_read(ch15));
 #endif
 
 #ifdef NEXUS_TEST_PROGRAM_CHANGE_UP_DOWN
@@ -699,15 +665,15 @@ void loop()
 #endif
 
 #ifdef NEXUS_TEST_EFFECTS_1
-   fx1_control(analog_read(ch11));
+   fx1_control(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_EFFECTS_2
-   fx2_control(analog_read(ch11));
+   fx2_control(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_MODULATION
-   modulation_control(analog_read(ch11));
+   modulation_control(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_SUSTAIN
@@ -731,33 +697,6 @@ void loop()
 
 #else // !NEXUS_TEST
 
-/**
- * @brief Control range adjustment
- *
- * The effective range of our controls (e.g. pots) is within 2% of the travel
- * to avoid noise at the extremes of the potentiometer range.
- */
-constexpr uint16_t min_x = 1024 * 0.02;
-constexpr uint16_t max_x = 1024 * 0.98;
-
-/**
- * @brief Read and normalize analog input
- *
- * Reads an analog input and maps it to the effective range.
- *
- * @param pin The analog pin to read
- * @return Normalized analog value in the range 0-1023
- */
-uint16_t analog_read(uint16_t pin)
-{
-   uint16_t x = analogRead(pin);
-   if (x < min_x)
-      x = min_x;
-   else if (x > max_x)
-      x = max_x;
-   return map(x, min_x, max_x, 0, 1023);
-}
-
 uint32_t prev_time = 0;
 
 /**
@@ -773,12 +712,12 @@ void loop()
    if (prev_time != millis())
    {
       sustain_control(digitalRead(ch9));
-      volume_control(analog_read(ch10));
-      fx1_control(analog_read(ch11));
-      fx2_control(analog_read(ch12));
-      pitch_bend(analog_read(ch13));
-      program_change(analog_read(ch14));
-      modulation_control(analog_read(ch15));
+      volume_control(nexus::config::analog_read(ch10));
+      fx1_control(nexus::config::analog_read(ch11));
+      fx2_control(nexus::config::analog_read(ch12));
+      pitch_bend(nexus::config::analog_read(ch13));
+      program_change(nexus::config::analog_read(ch14));
+      modulation_control(nexus::config::analog_read(ch15));
 
       program_change.up(!digitalRead(aux1));
       program_change.down(!digitalRead(aux2));
