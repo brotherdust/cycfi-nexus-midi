@@ -1,12 +1,24 @@
-/*=======================================================================================
-    Copyright (c) 2016 Cycfi Research
-
-    Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
-   =======================================================================================*/
+/**
+ * @file nexus_midi.ino
+ * @brief Main implementation file for the Nexus MIDI controller
+ *
+ * This file contains the implementation of a MIDI controller for the MSP430
+ * microcontroller. It handles various MIDI controls including program changes,
+ * volume control, pitch bending, modulation, effects, and sustain.
+ *
+ * @copyright Copyright (c) 2016 Cycfi Research
+ * @license Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
+ */
 #include "midi.hpp"
 #include "util.hpp"
 #include "MspFlash.h"
 
+/**
+ * @section TEST_DEFINES
+ *
+ * Uncomment these defines to enable various test modes.
+ * Each define enables a specific test functionality.
+ */
 //#define NEXUS_TEST
 //#define NEXUS_TEST_NOTE
 //#define NEXUS_TEST_VOLUME
@@ -23,47 +35,48 @@
 
 using namespace cycfi;
 
-///////////////////////////////////////////////////////////////////////////////
-// Control Mapping:
-//
-// Main:
-//
-//    program_change       5-way switch
-//    channel_volume       analog
-//    pitch_change         analog
-//    modulation           analog
-//    effect_1             analog
-//    effect_2             analog
-//    sustain              momentary switch
-//
-// Aux:
-//
-//    program_change +5    momentary switch
-//    program_change -5    momentary switch
-//    program_change +1    momentary switch
-//    program_change -1    momentary switch
-//    bank_select +1       momentary switch
-//    bank_select -1       momentary switch
-//
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section CONTROL_MAPPING
+ *
+ * Mapping of physical controls to MIDI functions.
+ *
+ * Main controls:
+ *   - program_change: 5-way switch
+ *   - channel_volume: analog
+ *   - pitch_change: analog
+ *   - modulation: analog
+ *   - effect_1: analog
+ *   - effect_2: analog
+ *   - sustain: momentary switch
+ *
+ * Auxiliary controls:
+ *   - program_change +5: momentary switch
+ *   - program_change -5: momentary switch
+ *   - program_change +1: momentary switch
+ *   - program_change -1: momentary switch
+ *   - bank_select +1: momentary switch
+ *   - bank_select -1: momentary switch
+ */
 
-///////////////////////////////////////////////////////////////////////////////
-// Constants
-///////////////////////////////////////////////////////////////////////////////
-int const ch9  = P2_0; //digital
-int const ch10 = P1_0; //analog and digital
-int const ch11 = P1_3; //analog and digital
-int const ch12 = P1_4; //analog and digital
-int const ch13 = P1_5; //analog and digital
-int const ch14 = P1_6; //analog and digital
-int const ch15 = P1_7; //analog and digital
+/**
+ * @section CONSTANTS
+ *
+ * Pin definitions and other constants used throughout the program.
+ */
+int const ch9  = P2_0; // Digital input
+int const ch10 = P1_0; // Analog and digital input
+int const ch11 = P1_3; // Analog and digital input
+int const ch12 = P1_4; // Analog and digital input
+int const ch13 = P1_5; // Analog and digital input
+int const ch14 = P1_6; // Analog and digital input
+int const ch15 = P1_7; // Analog and digital input
 
-int const aux1 = P2_1; //digital
-int const aux2 = P2_2; //digital
-int const aux3 = P2_3; //digital
-int const aux4 = P2_4; //digital
-int const aux5 = P2_5; //digital
-int const aux6 = P2_6; //digital
+int const aux1 = P2_1; // Digital input
+int const aux2 = P2_2; // Digital input
+int const aux3 = P2_3; // Digital input
+int const aux4 = P2_4; // Digital input
+int const aux5 = P2_5; // Digital input
+int const aux6 = P2_6; // Digital input
 
 #ifdef NEXUS_TEST
 int const noise_window = 4;
@@ -71,46 +84,70 @@ int const noise_window = 4;
 int const noise_window = 2;
 #endif
 
-///////////////////////////////////////////////////////////////////////////////
-// The main MIDI out stream
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section MIDI_STREAM
+ *
+ * The main MIDI output stream for sending MIDI messages.
+ */
 midi::midi_stream midi_out;
 
-///////////////////////////////////////////////////////////////////////////////
-// Flash Utility for persisting MIDI 7 bit data
-//
-// MSP430 has SEGMENT_B to SEGMENT_D available for applications to use,
-// where each segment has 64 bytes. When erased, data in the flash is
-// read as 0xff. You can only write once to a data slot, per segment,
-// per erase cycle (actually you can write more than once but once a bit
-// is reset, you cannot set it with a subsequent write).
-//
-// MSP430 is spec'd to allow a minimum guaranteed 10,000 erase cycles
-// (100,000 erase cycles typical). We store 7-bits data into flash memory
-// in a ring buffer fashion to minimize erase cycles and increase the
-// possible write cycles. See link below:
-//
-// http://processors.wiki.ti.com/index.php/Emulating_EEPROM_in_MSP430_Flash)
-//
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section FLASH_UTILITY
+ *
+ * Flash utility for persisting MIDI 7-bit data.
+ *
+ * The MSP430 has SEGMENT_B to SEGMENT_D available for applications to use,
+ * where each segment has 64 bytes. When erased, data in the flash is
+ * read as 0xff. You can only write once to a data slot, per segment,
+ * per erase cycle (actually you can write more than once but once a bit
+ * is reset, you cannot set it with a subsequent write).
+ *
+ * MSP430 is spec'd to allow a minimum guaranteed 10,000 erase cycles
+ * (100,000 erase cycles typical). We store 7-bits data into flash memory
+ * in a ring buffer fashion to minimize erase cycles and increase the
+ * possible write cycles. See link below:
+ *
+ * http://processors.wiki.ti.com/index.php/Emulating_EEPROM_in_MSP430_Flash
+ */
+/**
+ * @brief Flash memory management structure
+ *
+ * Provides functionality to read, write, and erase flash memory segments
+ * in a way that maximizes the lifespan of the flash memory.
+ */
 struct flash
 {
    typedef unsigned char byte;
 
+   /**
+    * @brief Constructor
+    * @param segment_ Pointer to the flash memory segment
+    */
    flash(byte* segment_)
       : _segment(segment_)
    {}
 
+   /**
+    * @brief Erase the flash memory segment
+    */
    void erase()
    {
       Flash.erase(_segment);
    }
 
+   /**
+    * @brief Check if the flash memory segment is empty
+    * @return true if empty, false otherwise
+    */
    bool empty() const
    {
       return (*_segment == 0xff);
    }
 
+   /**
+    * @brief Read a byte from the flash memory
+    * @return The byte value or 0xff if empty
+    */
    byte read() const
    {
       if (empty())
@@ -120,6 +157,10 @@ struct flash
       return _segment[63];
    }
 
+   /**
+    * @brief Write a byte to the flash memory
+    * @param val The byte value to write
+    */
    void write(byte val)
    {
       byte* p = find_free();
@@ -136,6 +177,10 @@ struct flash
 
    private:
 
+   /**
+    * @brief Find a free byte in the flash memory segment
+    * @return Pointer to the free byte or 0 if none found
+    */
    byte* find_free() const
    {
       for (int i = 0; i != 64; ++i)
@@ -144,32 +189,59 @@ struct flash
       return 0;
    }
 
-   byte* _segment;
+   byte* _segment; // Pointer to the flash memory segment
 };
 
-// We use SEGMENT_B and SEGMENT_C to store program change and bank select data
+/**
+ * @brief Flash memory instances for program change and bank select data
+ *
+ * We use SEGMENT_B and SEGMENT_C to store program change and bank select data
+ */
 flash flash_b(SEGMENT_B);
 flash flash_c(SEGMENT_C);
 
-// Save delay: We lazily save data to flash to minimize writes to flash
-// and thus conserve erase cycles. To do this, we avoid eagerly saving
-// data when the user is actively changing states (e.g. buttons are pushed).
-// We delay the actual save N milliseconds after the last state change.
+/**
+ * @brief Save delay mechanism for flash memory
+ *
+ * We lazily save data to flash to minimize writes to flash
+ * and thus conserve erase cycles. To do this, we avoid eagerly saving
+ * data when the user is actively changing states (e.g. buttons are pushed).
+ * We delay the actual save N milliseconds after the last state change.
+ */
 
-uint32_t const save_delay = 3000;  // 3 seconds delay
+uint32_t const save_delay = 3000;  // 3 seconds delay before saving to flash
 int32_t save_delay_start_time = -1;
 
+/**
+ * @brief Reset the save delay timer
+ *
+ * Called when a state change occurs to start the countdown
+ * before saving to flash memory.
+ */
 void reset_save_delay()
 {
    save_delay_start_time = millis();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Play notes (for testing only)
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section TEST_NOTE
+ *
+ * Play notes functionality for testing purposes only.
+ * Only compiled when NEXUS_TEST is defined.
+ */
 #ifdef NEXUS_TEST
+/**
+ * @brief Test structure for playing MIDI notes
+ *
+ * Handles note on/off events based on switch state.
+ */
 struct note
 {
+   /**
+    * @brief Process switch state to generate MIDI note events
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void operator()(bool sw)
    {
       int state = edge(sw);
@@ -185,14 +257,30 @@ struct note
 note _note;
 #endif
 
-///////////////////////////////////////////////////////////////////////////////
-// Generic controller handling (with course and fine controls)
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section CONTROLLER
+ *
+ * Generic controller handling with coarse and fine controls.
+ * Implements MIDI continuous controller functionality.
+ */
+/**
+ * @brief Generic MIDI controller implementation
+ *
+ * @tparam ctrl The MIDI controller type from midi::cc::controller
+ */
 template <midi::cc::controller ctrl>
 struct controller
 {
    static midi::cc::controller const ctrl_lsb = midi::cc::controller(ctrl | 0x20);
 
+   /**
+    * @brief Process analog input value and send MIDI control change messages
+    *
+    * Applies lowpass filtering and noise gating before sending MIDI messages.
+    * Sends both MSB and LSB control change messages for high resolution.
+    *
+    * @param val_ Raw analog input value
+    */
    void operator()(uint32_t val_)
    {
       uint32_t val = lp2(lp1(val_));
@@ -210,11 +298,25 @@ struct controller
    gate<noise_window, int32_t> gt;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Pitch bend controller
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section PITCH_BEND
+ *
+ * Pitch bend controller implementation.
+ */
+/**
+ * @brief MIDI pitch bend controller
+ *
+ * Processes analog input to generate MIDI pitch bend messages.
+ */
 struct pitch_bend_controller
 {
+   /**
+    * @brief Process analog input value and send MIDI pitch bend messages
+    *
+    * Applies lowpass filtering and noise gating before sending MIDI messages.
+    *
+    * @param val_ Raw analog input value
+    */
    void operator()(uint32_t val_)
    {
       uint32_t val = lp2(lp1(val_));
@@ -227,9 +329,18 @@ struct pitch_bend_controller
    gate<noise_window, int32_t> gt;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Program change controller
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section PROGRAM_CHANGE
+ *
+ * Program change controller implementation.
+ */
+/**
+ * @brief MIDI program change controller
+ *
+ * Handles program change selection via analog input or buttons.
+ * Supports individual and group increment/decrement.
+ * Persists program change values to flash memory.
+ */
 struct program_change_controller
 {
    program_change_controller()
@@ -237,12 +348,20 @@ struct program_change_controller
       , base{0}
    {}
 
+   /**
+    * @brief Load program change base value from flash memory
+    */
    void load()
    {
       if (!flash_b.empty())
          base = flash_b.read();
    }
 
+   /**
+    * @brief Save program change base value to flash memory
+    *
+    * Clamps the value to the valid MIDI range (0-127) before saving.
+    */
    void save()
    {
       uint8_t base_ = max(min(base, 127), 0);
@@ -250,16 +369,32 @@ struct program_change_controller
          flash_b.write(base_);
    }
 
+   /**
+    * @brief Get the current program change value
+    *
+    * @return Combined and clamped program change value
+    */
    uint8_t get()
    {
       return uint8_t{max(min(curr + base, 127), 0)};
    }
 
+   /**
+    * @brief Transmit the current program change value as a MIDI message
+    */
    void transmit()
    {
       midi_out << midi::program_change{0, get()};
    }
 
+   /**
+    * @brief Process analog input for program change selection
+    *
+    * Implements hysteresis to prevent jitter and maps the analog
+    * value to the appropriate program change range.
+    *
+    * @param val_ Raw analog input value
+    */
    void operator()(uint32_t val_)
    {
       uint32_t curr_ = curr * 205;
@@ -277,6 +412,11 @@ struct program_change_controller
       }
    }
 
+   /**
+    * @brief Increment program change base value by 1
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void up(bool sw)
    {
       if (btn_up(sw) && (base < 127))
@@ -287,6 +427,11 @@ struct program_change_controller
       }
    }
 
+   /**
+    * @brief Decrement program change base value by 1
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void down(bool sw)
    {
       if (btn_down(sw) && (base > 0))
@@ -297,6 +442,11 @@ struct program_change_controller
       }
    }
 
+   /**
+    * @brief Increment program change base value by 5
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void group_up(bool sw)
    {
       if (grp_btn_up(sw) && (base < 127))
@@ -307,6 +457,11 @@ struct program_change_controller
       }
    }
 
+   /**
+    * @brief Decrement program change base value by 5
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void group_down(bool sw)
    {
       if (grp_btn_down(sw) && (base > 0))
@@ -325,11 +480,23 @@ struct program_change_controller
    repeat_button<> grp_btn_down;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Sustain control
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section SUSTAIN
+ *
+ * Sustain controller implementation.
+ */
+/**
+ * @brief MIDI sustain pedal controller
+ *
+ * Processes switch input to generate MIDI sustain pedal messages.
+ */
 struct sustain_controller
 {
+   /**
+    * @brief Process switch state to generate MIDI sustain pedal messages
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void operator()(bool sw)
    {
       int state = edge(sw);
@@ -342,21 +509,37 @@ struct sustain_controller
    edge_detector<> edge;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// Bank Select controller
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section BANK_SELECT
+ *
+ * Bank select controller implementation.
+ */
+/**
+ * @brief MIDI bank select controller
+ *
+ * Handles bank selection via buttons.
+ * Persists bank select values to flash memory.
+ */
 struct bank_select_controller
 {
    bank_select_controller()
       : curr{0}
    {}
 
+   /**
+    * @brief Load bank select value from flash memory
+    */
    void load()
    {
       if (!flash_c.empty())
          curr = flash_c.read();
    }
 
+   /**
+    * @brief Save bank select value to flash memory
+    *
+    * Clamps the value to the valid MIDI range (0-127) before saving.
+    */
    void save()
    {
       uint8_t curr_ = max(min(curr, 127), 0);
@@ -364,11 +547,19 @@ struct bank_select_controller
          flash_c.write(curr_);
    }
 
+   /**
+    * @brief Transmit the current bank select value as a MIDI message
+    */
    void transmit()
    {
       midi_out << midi::control_change{0, midi::cc::bank_select, curr};
    }
 
+   /**
+    * @brief Increment bank select value by 1
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void up(bool sw)
    {
       if (btn_up(sw) && (curr < 127))
@@ -379,6 +570,11 @@ struct bank_select_controller
       }
    }
 
+   /**
+    * @brief Decrement bank select value by 1
+    *
+    * @param sw Switch state (true = pressed, false = released)
+    */
    void down(bool sw)
    {
       if (btn_down(sw) && (curr > 0))
@@ -394,9 +590,11 @@ struct bank_select_controller
    repeat_button<> btn_down;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-// The controls
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section CONTROLS
+ *
+ * Instantiation of all controller objects.
+ */
 controller<midi::cc::channel_volume>   volume_control;
 controller<midi::cc::effect_1>         fx1_control;
 controller<midi::cc::effect_2>         fx2_control;
@@ -406,9 +604,17 @@ program_change_controller              program_change;
 sustain_controller                     sustain_control;
 bank_select_controller                 bank_select_control;
 
-///////////////////////////////////////////////////////////////////////////////
-// setup
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section SETUP
+ *
+ * Setup function to initialize the MIDI controller.
+ */
+/**
+ * @brief Initialize pins, MIDI output, and load saved state
+ *
+ * Sets up all input pins, starts the MIDI output stream,
+ * and loads saved program change and bank select values from flash.
+ */
 void setup()
 {
    pinMode(ch9 , INPUT_PULLUP);
@@ -451,11 +657,19 @@ void setup()
 #endif
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// loop
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * @section LOOP
+ *
+ * Main program loop implementation.
+ */
 
 #ifdef NEXUS_TEST
+/**
+ * @brief Main loop function
+ *
+ * Processes all inputs and generates MIDI messages.
+ * Runs at a maximum rate of 1kHz.
+ */
 void loop()
 {
 #ifdef NEXUS_TEST_NOTE
@@ -517,10 +731,23 @@ void loop()
 
 #else // !NEXUS_TEST
 
-// The effective range of our controls (e.g. pots) is within 2% of the travel
+/**
+ * @brief Control range adjustment
+ *
+ * The effective range of our controls (e.g. pots) is within 2% of the travel
+ * to avoid noise at the extremes of the potentiometer range.
+ */
 constexpr uint16_t min_x = 1024 * 0.02;
 constexpr uint16_t max_x = 1024 * 0.98;
 
+/**
+ * @brief Read and normalize analog input
+ *
+ * Reads an analog input and maps it to the effective range.
+ *
+ * @param pin The analog pin to read
+ * @return Normalized analog value in the range 0-1023
+ */
 uint16_t analog_read(uint16_t pin)
 {
    uint16_t x = analogRead(pin);
@@ -533,10 +760,16 @@ uint16_t analog_read(uint16_t pin)
 
 uint32_t prev_time = 0;
 
+/**
+ * @brief Main loop function
+ *
+ * Processes all inputs and generates MIDI messages.
+ * Runs at a maximum rate of 1kHz.
+ */
 void loop()
 {
-   // Wish we used timer interrupts. Anyway, at least make sure we don't
-   // exceed a 1kHz processing loop.
+   // Limit processing rate to 1kHz maximum
+   // TODO: Consider implementing timer interrupts for more precise timing
    if (prev_time != millis())
    {
       sustain_control(digitalRead(ch9));
