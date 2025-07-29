@@ -19,6 +19,7 @@
 #include "controllers/pitch_bend_controller.hpp"
 #include "controllers/sustain_controller.hpp"
 #include "controllers/program_change_controller.hpp"
+#include "controllers/bank_select_controller.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -119,87 +120,7 @@ using namespace nexus::controllers;
 
 // Program change controller is now in controllers/program_change_controller.hpp
 // Sustain controller is now in controllers/sustain_controller.hpp
-
-/**
- * @section BANK_SELECT
- *
- * Bank select controller implementation.
- */
-/**
- * @brief MIDI bank select controller
- *
- * Handles bank selection via buttons.
- * Persists bank select values to flash memory.
- */
-struct bank_select_controller
-{
-   bank_select_controller()
-      : curr{0}
-   {}
-
-   /**
-    * @brief Load bank select value from flash memory
-    */
-   void load()
-   {
-      if (!flash_c.empty())
-         curr = flash_c.read();
-   }
-
-   /**
-    * @brief Save bank select value to flash memory
-    *
-    * Clamps the value to the valid MIDI range (0-127) before saving.
-    */
-   void save()
-   {
-      uint8_t curr_ = max(min(curr, 127), 0);
-      if (curr_ != flash_c.read())
-         flash_c.write(curr_);
-   }
-
-   /**
-    * @brief Transmit the current bank select value as a MIDI message
-    */
-   void transmit()
-   {
-      midi_out << midi::control_change{0, midi::cc::bank_select, curr};
-   }
-
-   /**
-    * @brief Increment bank select value by 1
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void up(bool sw)
-   {
-      if (btn_up(sw) && (curr < 127))
-      {
-         ++curr;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   /**
-    * @brief Decrement bank select value by 1
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void down(bool sw)
-   {
-      if (btn_down(sw) && (curr > 0))
-      {
-         --curr;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   uint8_t curr;
-   repeat_button<> btn_up;
-   repeat_button<> btn_down;
-};
+// Bank select controller is now in controllers/bank_select_controller.hpp
 
 /**
  * @section CONTROLS
@@ -213,7 +134,7 @@ Controller<midi::cc::modulation>       modulation_control;
 PitchBendController                    pitch_bend;
 ProgramChangeController                program_change;
 SustainController                      sustain_control;
-bank_select_controller                 bank_select_control;
+BankSelectController                   bank_select_control;
 
 /**
  * @section SETUP
