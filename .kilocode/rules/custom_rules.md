@@ -1,12 +1,20 @@
 # Kilocode Custom Rules for Nexus MIDI Controller Refactoring
 
 ## Git Commit Messages
-- Use plain text only - no markdown formatting
-- Keep messages concise and under 72 characters for the subject line
+- Follow strict git commit message best practices
+- Subject line: max 50 characters, imperative mood, no period
 - Use conventional commit format: type: brief description
 - Types: refactor, fix, feat, docs, test, chore
 - Example: "refactor: extract hardware configuration module"
-- If details needed, add blank line then bullet points (no special formatting)
+- Blank line between subject and body
+- Body: wrap at 72 characters, explain what and why
+- No markdown, no bullet points, no special formatting
+
+## Git Staging
+- Only stage specific files that were worked on
+- Never use `git add -A` or `git add .`
+- List files explicitly: `git add file1 file2 file3`
+- Review staged files before committing
 
 ## File Creation Policy
 - Minimize unnecessary documentation files during active development
@@ -42,3 +50,12 @@
 - Don't create files just to summarize - ask first
 - Focus on implementation over documentation
 - Respect token usage - be concise
+
+## C++ Language Restrictions
+- DO NOT use C++11 features - compiler only supports C++98/03
+- No in-class member initialization
+- No auto keyword
+- No nullptr (use NULL)
+- No range-based for loops
+- No lambda expressions
+- Initialize all class members in constructors
