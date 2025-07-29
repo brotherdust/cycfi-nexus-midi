@@ -16,6 +16,7 @@
 #include "storage/flash_manager.hpp"
 #include "storage/persistent_storage.hpp"
 #include "controllers/controller_factory.hpp"
+#include "test/test_runner.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -75,50 +76,8 @@ midi::midi_stream midi_out;
 // Flash storage is now in storage/flash_manager.hpp and storage/persistent_storage.hpp
 using namespace nexus::storage;
 
-/**
- * @section TEST_NOTE
- *
- * Play notes functionality for testing purposes only.
- * Only compiled when NEXUS_TEST is defined.
- */
-#ifdef NEXUS_TEST
-/**
- * @brief Test structure for playing MIDI notes
- *
- * Handles note on/off events based on switch state.
- */
-struct note
-{
-   /**
-    * @brief Process switch state to generate MIDI note events
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void operator()(bool sw)
-   {
-      int state = edge(sw);
-      if (state == 1)
-         midi_out << midi::note_on{0, 80, 127};
-      else if (state == -1)
-         midi_out << midi::note_off{0, 80, 127};
-   }
-
-   edge_detector<> edge;
-};
-
-note _note;
-#endif
-
-// Controller template is now in controllers/base_controller.hpp
-using namespace nexus::controllers;
-
-// Pitch bend controller is now in controllers/pitch_bend_controller.hpp
-
-// Program change controller is now in controllers/program_change_controller.hpp
-// Sustain controller is now in controllers/sustain_controller.hpp
-// Bank select controller is now in controllers/bank_select_controller.hpp
-
 // All controllers are now managed by the controller factory
+// Test functionality is now in test/test_runner.hpp
 
 /**
  * @section SETUP
@@ -141,19 +100,8 @@ void setup()
    // Initialize all controllers
    nexus::controllers::controllers.initialize();
 
-#ifdef NEXUS_DUMP_FLASH
-   unsigned char* seg_b = SEGMENT_B;
-   midi_out << midi::sysex<16> {0x5555, seg_b};
-   midi_out << midi::sysex<16> {0x5555, seg_b + 16};
-   midi_out << midi::sysex<16> {0x5555, seg_b + 32};
-   midi_out << midi::sysex<16> {0x5555, seg_b + 48};
-
-   unsigned char* seg_c = SEGMENT_C;
-   midi_out << midi::sysex<16> {0x5555, seg_c};
-   midi_out << midi::sysex<16> {0x5555, seg_c + 16};
-   midi_out << midi::sysex<16> {0x5555, seg_c + 32};
-   midi_out << midi::sysex<16> {0x5555, seg_c + 48};
-#endif
+   // Dump flash if requested
+   nexus::test::test_runner.dump_flash();
 }
 
 /**
@@ -163,63 +111,15 @@ void setup()
  */
 
 #ifdef NEXUS_TEST
+
 /**
- * @brief Main loop function
+ * @brief Main loop function for test mode
  *
- * Processes all inputs and generates MIDI messages.
- * Runs at a maximum rate of 1kHz.
+ * Runs test functionality based on compile-time flags
  */
 void loop()
 {
-#ifdef NEXUS_TEST_NOTE
-   _note(digitalRead(aux1));
-#endif
-
-#ifdef NEXUS_TEST_VOLUME
-   nexus::controllers::controllers.volume(nexus::config::analog_read(ch10));
-#endif
-
-#ifdef NEXUS_TEST_PITCH_BEND
-   nexus::controllers::controllers.pitch_bend(nexus::config::analog_read(ch10));
-#endif
-
-#ifdef NEXUS_TEST_PROGRAM_CHANGE
-   nexus::controllers::controllers.program_change(nexus::config::analog_read(ch15));
-#endif
-
-#ifdef NEXUS_TEST_PROGRAM_CHANGE_UP_DOWN
-   nexus::controllers::controllers.program_change.up(digitalRead(ch12));
-   nexus::controllers::controllers.program_change.down(digitalRead(ch13));
-#endif
-
-#ifdef NEXUS_TEST_PROGRAM_CHANGE_GROUP_UP_DOWN
-   nexus::controllers::controllers.program_change.group_up(digitalRead(ch12));
-   nexus::controllers::controllers.program_change.group_down(digitalRead(ch13));
-#endif
-
-#ifdef NEXUS_TEST_EFFECTS_1
-   nexus::controllers::controllers.fx1(nexus::config::analog_read(ch11));
-#endif
-
-#ifdef NEXUS_TEST_EFFECTS_2
-   nexus::controllers::controllers.fx2(nexus::config::analog_read(ch11));
-#endif
-
-#ifdef NEXUS_TEST_MODULATION
-   nexus::controllers::controllers.modulation(nexus::config::analog_read(ch11));
-#endif
-
-#ifdef NEXUS_TEST_SUSTAIN
-   nexus::controllers::controllers.sustain(digitalRead(ch12));
-#endif
-
-#ifdef NEXUS_TEST_BANK_SELECT
-   nexus::controllers::controllers.bank_select.up(digitalRead(aux1));
-   nexus::controllers::controllers.bank_select.down(digitalRead(aux2));
-#endif
-
-   // Save controller states if needed
-   nexus::controllers::controllers.save_states();
+   nexus::test::test_runner.run();
 }
 
 #else // !NEXUS_TEST
