@@ -7,7 +7,7 @@
 #define CYCFI_UTIL_HPP_NOVEMBER_11_2016
 //
 #include <stdint.h>
-#include <energia.h>
+// #include <energia.h>
 
 namespace cycfi
 {
