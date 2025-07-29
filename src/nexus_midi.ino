@@ -13,6 +13,8 @@
 #include "util.hpp"
 #include "MspFlash.h"
 #include "config/hardware_config.hpp"
+#include "storage/flash_manager.hpp"
+#include "storage/persistent_storage.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -69,137 +71,8 @@ using namespace nexus::config;
  */
 midi::midi_stream midi_out;
 
-/**
- * @section FLASH_UTILITY
- *
- * Flash utility for persisting MIDI 7-bit data.
- *
- * The MSP430 has SEGMENT_B to SEGMENT_D available for applications to use,
- * where each segment has 64 bytes. When erased, data in the flash is
- * read as 0xff. You can only write once to a data slot, per segment,
- * per erase cycle (actually you can write more than once but once a bit
- * is reset, you cannot set it with a subsequent write).
- *
- * MSP430 is spec'd to allow a minimum guaranteed 10,000 erase cycles
- * (100,000 erase cycles typical). We store 7-bits data into flash memory
- * in a ring buffer fashion to minimize erase cycles and increase the
- * possible write cycles. See link below:
- *
- * http://processors.wiki.ti.com/index.php/Emulating_EEPROM_in_MSP430_Flash
- */
-/**
- * @brief Flash memory management structure
- *
- * Provides functionality to read, write, and erase flash memory segments
- * in a way that maximizes the lifespan of the flash memory.
- */
-struct flash
-{
-   typedef unsigned char byte;
-
-   /**
-    * @brief Constructor
-    * @param segment_ Pointer to the flash memory segment
-    */
-   flash(byte* segment_)
-      : _segment(segment_)
-   {}
-
-   /**
-    * @brief Erase the flash memory segment
-    */
-   void erase()
-   {
-      Flash.erase(_segment);
-   }
-
-   /**
-    * @brief Check if the flash memory segment is empty
-    * @return true if empty, false otherwise
-    */
-   bool empty() const
-   {
-      return (*_segment == 0xff);
-   }
-
-   /**
-    * @brief Read a byte from the flash memory
-    * @return The byte value or 0xff if empty
-    */
-   byte read() const
-   {
-      if (empty())
-         return 0xff;
-      if (byte* p = find_free())
-         return *(p - 1);
-      return _segment[63];
-   }
-
-   /**
-    * @brief Write a byte to the flash memory
-    * @param val The byte value to write
-    */
-   void write(byte val)
-   {
-      byte* p = find_free();
-      if (p == 0)
-      {
-         erase();
-         Flash.write(_segment, &val, 1);
-      }
-      else
-      {
-         Flash.write(p, &val, 1);
-      }
-   }
-
-   private:
-
-   /**
-    * @brief Find a free byte in the flash memory segment
-    * @return Pointer to the free byte or 0 if none found
-    */
-   byte* find_free() const
-   {
-      for (int i = 0; i != 64; ++i)
-         if (_segment[i] == 0xff)
-            return &_segment[i];
-      return 0;
-   }
-
-   byte* _segment; // Pointer to the flash memory segment
-};
-
-/**
- * @brief Flash memory instances for program change and bank select data
- *
- * We use SEGMENT_B and SEGMENT_C to store program change and bank select data
- */
-flash flash_b(SEGMENT_B);
-flash flash_c(SEGMENT_C);
-
-/**
- * @brief Save delay mechanism for flash memory
- *
- * We lazily save data to flash to minimize writes to flash
- * and thus conserve erase cycles. To do this, we avoid eagerly saving
- * data when the user is actively changing states (e.g. buttons are pushed).
- * We delay the actual save N milliseconds after the last state change.
- */
-
-uint32_t const save_delay = 3000;  // 3 seconds delay before saving to flash
-int32_t save_delay_start_time = -1;
-
-/**
- * @brief Reset the save delay timer
- *
- * Called when a state change occurs to start the countdown
- * before saving to flash memory.
- */
-void reset_save_delay()
-{
-   save_delay_start_time = millis();
-}
+// Flash storage is now in storage/flash_manager.hpp and storage/persistent_storage.hpp
+using namespace nexus::storage;
 
 /**
  * @section TEST_NOTE
@@ -686,12 +559,11 @@ void loop()
 #endif
 
    // Save the program_change and bank_select_control if needed
-   if ((save_delay_start_time != -1)
-      && (millis() > (save_delay_start_time + save_delay)))
+   if (should_save())
    {
       program_change.save();
       bank_select_control.save();
-      save_delay_start_time = -1;
+      mark_saved();
    }
 }
 
@@ -730,12 +602,11 @@ void loop()
    }
 
    // Save the program_change and bank_select_control if needed
-   if ((save_delay_start_time != -1)
-      && (millis() > (save_delay_start_time + save_delay)))
+   if (should_save())
    {
       program_change.save();
       bank_select_control.save();
-      save_delay_start_time = -1;
+      mark_saved();
    }
 }
 
