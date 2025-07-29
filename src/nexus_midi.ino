@@ -15,6 +15,10 @@
 #include "config/hardware_config.hpp"
 #include "storage/flash_manager.hpp"
 #include "storage/persistent_storage.hpp"
+#include "controllers/base_controller.hpp"
+#include "controllers/pitch_bend_controller.hpp"
+#include "controllers/sustain_controller.hpp"
+#include "controllers/program_change_controller.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -108,257 +112,13 @@ struct note
 note _note;
 #endif
 
-/**
- * @section CONTROLLER
- *
- * Generic controller handling with coarse and fine controls.
- * Implements MIDI continuous controller functionality.
- */
-/**
- * @brief Generic MIDI controller implementation
- *
- * @tparam ctrl The MIDI controller type from midi::cc::controller
- */
-template <midi::cc::controller ctrl>
-struct controller
-{
-   static midi::cc::controller const ctrl_lsb = midi::cc::controller(ctrl | 0x20);
+// Controller template is now in controllers/base_controller.hpp
+using namespace nexus::controllers;
 
-   /**
-    * @brief Process analog input value and send MIDI control change messages
-    *
-    * Applies lowpass filtering and noise gating before sending MIDI messages.
-    * Sends both MSB and LSB control change messages for high resolution.
-    *
-    * @param val_ Raw analog input value
-    */
-   void operator()(uint32_t val_)
-   {
-      uint32_t val = lp2(lp1(val_));
-      if (gt(val))
-      {
-         uint8_t const msb = val >> 3;
-         uint8_t const lsb = (val << 4) & 0x7F;
-         midi_out << midi::control_change{0, ctrl_lsb, lsb};
-         midi_out << midi::control_change{0, ctrl, msb};
-      }
-   }
+// Pitch bend controller is now in controllers/pitch_bend_controller.hpp
 
-   lowpass<8, int32_t> lp1;
-   lowpass<16, int32_t> lp2;
-   gate<noise_window, int32_t> gt;
-};
-
-/**
- * @section PITCH_BEND
- *
- * Pitch bend controller implementation.
- */
-/**
- * @brief MIDI pitch bend controller
- *
- * Processes analog input to generate MIDI pitch bend messages.
- */
-struct pitch_bend_controller
-{
-   /**
-    * @brief Process analog input value and send MIDI pitch bend messages
-    *
-    * Applies lowpass filtering and noise gating before sending MIDI messages.
-    *
-    * @param val_ Raw analog input value
-    */
-   void operator()(uint32_t val_)
-   {
-      uint32_t val = lp2(lp1(val_));
-      if (gt(val))
-         midi_out << midi::pitch_bend{0, uint16_t{(val << 4) + (val % 16)}};
-   }
-
-   lowpass<8, int32_t> lp1;
-   lowpass<16, int32_t> lp2;
-   gate<noise_window, int32_t> gt;
-};
-
-/**
- * @section PROGRAM_CHANGE
- *
- * Program change controller implementation.
- */
-/**
- * @brief MIDI program change controller
- *
- * Handles program change selection via analog input or buttons.
- * Supports individual and group increment/decrement.
- * Persists program change values to flash memory.
- */
-struct program_change_controller
-{
-   program_change_controller()
-      : curr{0}
-      , base{0}
-   {}
-
-   /**
-    * @brief Load program change base value from flash memory
-    */
-   void load()
-   {
-      if (!flash_b.empty())
-         base = flash_b.read();
-   }
-
-   /**
-    * @brief Save program change base value to flash memory
-    *
-    * Clamps the value to the valid MIDI range (0-127) before saving.
-    */
-   void save()
-   {
-      uint8_t base_ = max(min(base, 127), 0);
-      if (base_ != flash_b.read())
-         flash_b.write(base_);
-   }
-
-   /**
-    * @brief Get the current program change value
-    *
-    * @return Combined and clamped program change value
-    */
-   uint8_t get()
-   {
-      return uint8_t{max(min(curr + base, 127), 0)};
-   }
-
-   /**
-    * @brief Transmit the current program change value as a MIDI message
-    */
-   void transmit()
-   {
-      midi_out << midi::program_change{0, get()};
-   }
-
-   /**
-    * @brief Process analog input for program change selection
-    *
-    * Implements hysteresis to prevent jitter and maps the analog
-    * value to the appropriate program change range.
-    *
-    * @param val_ Raw analog input value
-    */
-   void operator()(uint32_t val_)
-   {
-      uint32_t curr_ = curr * 205;
-      int diff = curr_ - val_;
-      if (diff < 0)
-         diff = -diff;
-      if (diff < 8)
-         return;
-
-      uint8_t val = (val_ * 5) / 1024;
-      if (val != curr)
-      {
-         curr = val;
-         transmit();
-      }
-   }
-
-   /**
-    * @brief Increment program change base value by 1
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void up(bool sw)
-   {
-      if (btn_up(sw) && (base < 127))
-      {
-         ++base;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   /**
-    * @brief Decrement program change base value by 1
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void down(bool sw)
-   {
-      if (btn_down(sw) && (base > 0))
-      {
-         --base;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   /**
-    * @brief Increment program change base value by 5
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void group_up(bool sw)
-   {
-      if (grp_btn_up(sw) && (base < 127))
-      {
-         base += 5;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   /**
-    * @brief Decrement program change base value by 5
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void group_down(bool sw)
-   {
-      if (grp_btn_down(sw) && (base > 0))
-      {
-         base -= 5;
-         reset_save_delay();
-         transmit();
-      }
-   }
-
-   int16_t curr;
-   int16_t base;
-   repeat_button<> btn_up;
-   repeat_button<> btn_down;
-   repeat_button<> grp_btn_up;
-   repeat_button<> grp_btn_down;
-};
-
-/**
- * @section SUSTAIN
- *
- * Sustain controller implementation.
- */
-/**
- * @brief MIDI sustain pedal controller
- *
- * Processes switch input to generate MIDI sustain pedal messages.
- */
-struct sustain_controller
-{
-   /**
-    * @brief Process switch state to generate MIDI sustain pedal messages
-    *
-    * @param sw Switch state (true = pressed, false = released)
-    */
-   void operator()(bool sw)
-   {
-      int state = edge(sw);
-      if (state == 1)
-         midi_out << midi::control_change{0, midi::cc::sustain, 0};
-      else if (state == -1)
-         midi_out << midi::control_change{0, midi::cc::sustain, 127};
-   }
-
-   edge_detector<> edge;
-};
+// Program change controller is now in controllers/program_change_controller.hpp
+// Sustain controller is now in controllers/sustain_controller.hpp
 
 /**
  * @section BANK_SELECT
@@ -446,13 +206,13 @@ struct bank_select_controller
  *
  * Instantiation of all controller objects.
  */
-controller<midi::cc::channel_volume>   volume_control;
-controller<midi::cc::effect_1>         fx1_control;
-controller<midi::cc::effect_2>         fx2_control;
-controller<midi::cc::modulation>       modulation_control;
-pitch_bend_controller                  pitch_bend;
-program_change_controller              program_change;
-sustain_controller                     sustain_control;
+Controller<midi::cc::channel_volume>   volume_control;
+Controller<midi::cc::effect_1>         fx1_control;
+Controller<midi::cc::effect_2>         fx2_control;
+Controller<midi::cc::modulation>       modulation_control;
+PitchBendController                    pitch_bend;
+ProgramChangeController                program_change;
+SustainController                      sustain_control;
 bank_select_controller                 bank_select_control;
 
 /**

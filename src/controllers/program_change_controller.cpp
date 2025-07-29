@@ -1,0 +1,88 @@
+/**
+ * @file program_change_controller.cpp
+ * @brief MIDI program change controller implementation
+ *
+ * @copyright Copyright (c) 2016 Cycfi Research
+ * @license Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
+ */
+#include <Arduino.h>  // Must be first for Arduino functions
+#include "controllers/program_change_controller.hpp"
+
+using namespace cycfi;
+
+namespace nexus {
+namespace controllers {
+
+ProgramChangeController::ProgramChangeController()
+    : curr{0}
+    , base{0}
+{}
+
+void ProgramChangeController::load() {
+    if (!storage::flash_b.empty())
+        base = storage::flash_b.read();
+}
+
+void ProgramChangeController::save() {
+    uint8_t base_ = max(min(base, 127), 0);
+    if (base_ != storage::flash_b.read())
+        storage::flash_b.write(base_);
+}
+
+uint8_t ProgramChangeController::get() {
+    return uint8_t{max(min(curr + base, 127), 0)};
+}
+
+void ProgramChangeController::transmit() {
+    midi_out << midi::program_change{0, get()};
+}
+
+void ProgramChangeController::operator()(uint32_t val_) {
+    uint32_t curr_ = curr * 205;
+    int diff = curr_ - val_;
+    if (diff < 0)
+        diff = -diff;
+    if (diff < 8)
+        return;
+
+    uint8_t val = (val_ * 5) / 1024;
+    if (val != curr) {
+        curr = val;
+        transmit();
+    }
+}
+
+void ProgramChangeController::up(bool sw) {
+    if (btn_up(sw) && (base < 127)) {
+        ++base;
+        storage::reset_save_delay();
+        transmit();
+    }
+}
+
+void ProgramChangeController::down(bool sw) {
+    if (btn_down(sw) && (base > 0)) {
+        --base;
+        storage::reset_save_delay();
+        transmit();
+    }
+}
+
+void ProgramChangeController::group_up(bool sw) {
+    if (grp_btn_up(sw) && (base < 127)) {
+        base += 5;
+        storage::reset_save_delay();
+        transmit();
+    }
+}
+
+void ProgramChangeController::group_down(bool sw) {
+    if (grp_btn_down(sw) && (base > 0)) {
+        base -= 5;
+        storage::reset_save_delay();
+        transmit();
+    }
+}
+
+} // namespace controllers
+} // namespace nexus
