@@ -15,11 +15,7 @@
 #include "config/hardware_config.hpp"
 #include "storage/flash_manager.hpp"
 #include "storage/persistent_storage.hpp"
-#include "controllers/base_controller.hpp"
-#include "controllers/pitch_bend_controller.hpp"
-#include "controllers/sustain_controller.hpp"
-#include "controllers/program_change_controller.hpp"
-#include "controllers/bank_select_controller.hpp"
+#include "controllers/controller_factory.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -122,19 +118,7 @@ using namespace nexus::controllers;
 // Sustain controller is now in controllers/sustain_controller.hpp
 // Bank select controller is now in controllers/bank_select_controller.hpp
 
-/**
- * @section CONTROLS
- *
- * Instantiation of all controller objects.
- */
-Controller<midi::cc::channel_volume>   volume_control;
-Controller<midi::cc::effect_1>         fx1_control;
-Controller<midi::cc::effect_2>         fx2_control;
-Controller<midi::cc::modulation>       modulation_control;
-PitchBendController                    pitch_bend;
-ProgramChangeController                program_change;
-SustainController                      sustain_control;
-BankSelectController                   bank_select_control;
+// All controllers are now managed by the controller factory
 
 /**
  * @section SETUP
@@ -154,13 +138,8 @@ void setup()
 
    midi_out.start();
 
-   // Load the program_change and bank_select_control states from flash
-   program_change.load();
-   bank_select_control.load();
-
-   // Transmit the current program_change and bank select state
-   program_change.transmit();
-   bank_select_control.transmit();
+   // Initialize all controllers
+   nexus::controllers::controllers.initialize();
 
 #ifdef NEXUS_DUMP_FLASH
    unsigned char* seg_b = SEGMENT_B;
@@ -197,60 +176,53 @@ void loop()
 #endif
 
 #ifdef NEXUS_TEST_VOLUME
-   volume_control(nexus::config::analog_read(ch10));
+   nexus::controllers::controllers.volume(nexus::config::analog_read(ch10));
 #endif
 
 #ifdef NEXUS_TEST_PITCH_BEND
-   pitch_bend(nexus::config::analog_read(ch10));
+   nexus::controllers::controllers.pitch_bend(nexus::config::analog_read(ch10));
 #endif
 
 #ifdef NEXUS_TEST_PROGRAM_CHANGE
-   program_change(nexus::config::analog_read(ch15));
+   nexus::controllers::controllers.program_change(nexus::config::analog_read(ch15));
 #endif
 
 #ifdef NEXUS_TEST_PROGRAM_CHANGE_UP_DOWN
-   program_change.up(digitalRead(ch12));
-   program_change.down(digitalRead(ch13));
+   nexus::controllers::controllers.program_change.up(digitalRead(ch12));
+   nexus::controllers::controllers.program_change.down(digitalRead(ch13));
 #endif
 
 #ifdef NEXUS_TEST_PROGRAM_CHANGE_GROUP_UP_DOWN
-   program_change.group_up(digitalRead(ch12));
-   program_change.group_down(digitalRead(ch13));
+   nexus::controllers::controllers.program_change.group_up(digitalRead(ch12));
+   nexus::controllers::controllers.program_change.group_down(digitalRead(ch13));
 #endif
 
 #ifdef NEXUS_TEST_EFFECTS_1
-   fx1_control(nexus::config::analog_read(ch11));
+   nexus::controllers::controllers.fx1(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_EFFECTS_2
-   fx2_control(nexus::config::analog_read(ch11));
+   nexus::controllers::controllers.fx2(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_MODULATION
-   modulation_control(nexus::config::analog_read(ch11));
+   nexus::controllers::controllers.modulation(nexus::config::analog_read(ch11));
 #endif
 
 #ifdef NEXUS_TEST_SUSTAIN
-   sustain_control(digitalRead(ch12));
+   nexus::controllers::controllers.sustain(digitalRead(ch12));
 #endif
 
 #ifdef NEXUS_TEST_BANK_SELECT
-   bank_select_control.up(digitalRead(aux1));
-   bank_select_control.down(digitalRead(aux2));
+   nexus::controllers::controllers.bank_select.up(digitalRead(aux1));
+   nexus::controllers::controllers.bank_select.down(digitalRead(aux2));
 #endif
 
-   // Save the program_change and bank_select_control if needed
-   if (should_save())
-   {
-      program_change.save();
-      bank_select_control.save();
-      mark_saved();
-   }
+   // Save controller states if needed
+   nexus::controllers::controllers.save_states();
 }
 
 #else // !NEXUS_TEST
-
-uint32_t prev_time = 0;
 
 /**
  * @brief Main loop function
@@ -260,35 +232,7 @@ uint32_t prev_time = 0;
  */
 void loop()
 {
-   // Limit processing rate to 1kHz maximum
-   // TODO: Consider implementing timer interrupts for more precise timing
-   if (prev_time != millis())
-   {
-      sustain_control(digitalRead(ch9));
-      volume_control(nexus::config::analog_read(ch10));
-      fx1_control(nexus::config::analog_read(ch11));
-      fx2_control(nexus::config::analog_read(ch12));
-      pitch_bend(nexus::config::analog_read(ch13));
-      program_change(nexus::config::analog_read(ch14));
-      modulation_control(nexus::config::analog_read(ch15));
-
-      program_change.up(!digitalRead(aux1));
-      program_change.down(!digitalRead(aux2));
-      program_change.group_up(!digitalRead(aux3));
-      program_change.group_down(!digitalRead(aux4));
-      bank_select_control.up(!digitalRead(aux5));
-      bank_select_control.down(!digitalRead(aux6));
-
-      prev_time = millis();
-   }
-
-   // Save the program_change and bank_select_control if needed
-   if (should_save())
-   {
-      program_change.save();
-      bank_select_control.save();
-      mark_saved();
-   }
+   nexus::controllers::controllers.process_inputs();
 }
 
 #endif // NEXUS_TEST
