@@ -5,6 +5,16 @@
  * This file contains various utility classes for embedded applications,
  * including switch debouncers, edge detectors, button handlers, and filters.
  *
+ * The debouncing mechanism can operate in two modes:
+ * 1. Standard mode (default): Debounces both press and release events
+ * 2. Immediate mode: Provides immediate press detection with release-only debouncing
+ *
+ * To enable immediate mode, define CYCFI_USE_IMMEDIATE_DEBOUNCE before including this file:
+ * @code
+ * #define CYCFI_USE_IMMEDIATE_DEBOUNCE
+ * #include "util.hpp"
+ * @endcode
+ *
  * @copyright Copyright (c) 2016 Cycfi Research
  * @license Distributed under the MIT License [ https://opensource.org/licenses/MIT ]
  */
@@ -14,14 +24,28 @@
 #include <stdint.h>
 // #include <energia.h>
 
+/**
+ * @def CYCFI_USE_IMMEDIATE_DEBOUNCE
+ * @brief Enable immediate press detection with release-only debouncing
+ *
+ * When defined, button handling classes will use immediate press detection
+ * while still debouncing the release event. This provides more responsive
+ * button presses while preventing false release triggers from switch bounce.
+ */
+// #define CYCFI_USE_IMMEDIATE_DEBOUNCE
+
 namespace cycfi
 {
    /**
     * @brief A switch debouncer
     *
-    * Implements a simple counter-based debouncing algorithm for switches.
-    * The switch state is considered changed only after a consistent reading
-    * for a specified number of samples.
+    * Implements a counter-based debouncing algorithm for switches.
+    * 
+    * Standard mode: The switch state is considered changed only after a 
+    * consistent reading for a specified number of samples.
+    * 
+    * Immediate mode (when CYCFI_USE_IMMEDIATE_DEBOUNCE is defined):
+    * Press detection is immediate, release requires consistent samples.
     *
     * @tparam samples Number of consistent samples required to change state (default: 10)
     */
@@ -46,13 +70,21 @@ namespace cycfi
       {
          if (sw)
          {
+#ifdef CYCFI_USE_IMMEDIATE_DEBOUNCE
+            // Immediate press detection
+            counter = samples;
+            result = true;
+#else
+            // Standard debounced press
             if (counter == samples)
                result = true;
             else
                ++counter;
+#endif
          }
          else
          {
+            // Release is always debounced
             if (counter == 0)
                result = false;
             else
@@ -71,6 +103,9 @@ namespace cycfi
     *
     * Detects rising and falling edges of a debounced switch.
     * Returns 1 for rising edge, -1 for falling edge, and 0 for no change.
+    *
+    * When CYCFI_USE_IMMEDIATE_DEBOUNCE is defined, rising edges are
+    * detected immediately while falling edges are debounced.
     *
     * @tparam samples Number of consistent samples required to change state (default: 10)
     */
@@ -113,6 +148,9 @@ namespace cycfi
     * Implements a button handler with initial delay and repeat rate functionality,
     * similar to keyboard key repeat behavior. After the initial press and delay,
     * the button will repeatedly trigger at the specified rate while held down.
+    *
+    * When CYCFI_USE_IMMEDIATE_DEBOUNCE is defined, the initial press is
+    * detected immediately for more responsive user interaction.
     *
     * @tparam delay_ Initial delay in milliseconds before repeating (default: 1000)
     * @tparam rate Repeat rate in milliseconds (default: 100)
