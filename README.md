@@ -44,6 +44,8 @@ This refactoring transforms the original monolithic Nexus GK firmware into a mod
 2. Install [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode)
 3. Install MSP430 LaunchPad drivers
 
+**NOTE**: The `mspdebug` tool included with PlatformIO is out of date and doesn't include the `tilib` driver. Ensure you are using at least version `0.25` AND has support for `tilib`. How to do that is outside of the scope of this project.
+
 ### Build & Upload
 ```bash
 git clone https://github.com/brotherdust/cycfi-nexus-midi.git
