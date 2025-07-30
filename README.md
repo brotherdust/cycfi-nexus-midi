@@ -1,14 +1,14 @@
-# Nexus MIDI Controller - Modular Refactoring
+# Nexus MIDI GK Controller Firmware - Modular Refactoring
 
 A modular refactoring of the original Cycfi Research Nexus MIDI controller codebase for the MSP430G2553 microcontroller, enhanced with switch-to-CC mapping functionality.
 
 ## Attribution
 
-**This project is based on the original Nexus codebase created by [Cycfi Research](https://www.cycfi.com/).** This repository represents a modular refactoring of their original implementation, not a generic MIDI controller solution.
+**This project is based on the original Nexus codebase created by [Cycfi Research](https://www.cycfi.com/).** This repository represents a modular refactoring of their original implementation. The original code can be found here: [https://github.com/cycfi/nexus/tree/master/source/nexus_midi](https://github.com/cycfi/nexus/tree/master/source/nexus_midi)
 
 ## Description
 
-This repository contains a modular refactoring of the Cycfi Research Nexus MIDI controller firmware. The refactoring transforms the original monolithic codebase into a clean, maintainable architecture while preserving the core functionality and adding new capabilities. Built using PlatformIO and optimized for the MSP430G2553's memory constraints, this implementation maintains compatibility with the original hardware design.
+This repository contains a modular refactoring of the Cycfi Research Nexus GK MIDI controller firmware. The refactoring transforms the original monolithic codebase into a clean, maintainable architecture while preserving the core functionality and adding new capabilities. Built using PlatformIO and optimized for the MSP430G2553's memory constraints, this implementation maintains compatibility with the original hardware design.
 
 ### Key Enhancement
 
@@ -28,15 +28,15 @@ This refactoring serves to:
 
 ## Origin and History
 
-The original Nexus MIDI controller was created by Cycfi Research as part of their innovative music technology solutions. This refactoring project:
-- Preserves the core Nexus functionality and design philosophy
+The original Nexus GK MIDI controller was created by Cycfi Research as part of their innovative music technology solutions. This refactoring project:
+- Preserves the core Nexus GK functionality and design philosophy
 - Restructures the code into modular components for better maintainability
 - Adds the switch-to-CC mapping feature as a key enhancement
 - Maintains strict compatibility with the MSP430G2553's limited resources (16KB Flash, 512B RAM)
 
 ## Key Features
 
-### Original Nexus Features (Preserved)
+### Original Nexus GK Features (Preserved)
 - Multiple MIDI controller types (Program Change, Bank Select, Pitch Bend, etc.)
 - Persistent storage for configurations
 - Hardware abstraction layer
@@ -101,77 +101,6 @@ The original Nexus MIDI controller was created by Cycfi Research as part of thei
 2. Click the Upload button in the PlatformIO toolbar
 3. Or press `Ctrl+Alt+U` (or `Cmd+Alt+U` on macOS)
 
-## Usage Examples
-
-### Basic Controller Setup
-
-```cpp
-#include "controllers/controller_factory.hpp"
-#include "config/hardware_config.hpp"
-
-// Create a program change controller
-nexus::controllers::BaseController* pcController = 
-    nexus::controllers::ControllerFactory::createController(
-        nexus::controllers::PROGRAM_CHANGE
-    );
-
-// Initialize the controller
-pcController->init();
-
-// Process MIDI events in your main loop
-void loop() {
-    pcController->update();
-}
-```
-
-### Configuring Hardware Pins
-
-```cpp
-// Hardware configuration is centralized in hardware_config.hpp
-// Modify pin assignments and hardware parameters there
-```
-
-### Using Persistent Storage
-
-```cpp
-#include "storage/persistent_storage.hpp"
-
-// Save current configuration
-nexus::storage::PersistentStorage::saveConfiguration();
-
-// Load saved configuration
-nexus::storage::PersistentStorage::loadConfiguration();
-```
-
-## Project Structure
-
-```
-.
-├── platformio.ini          # PlatformIO configuration
-├── include/               # Header files
-│   ├── config/           # Configuration headers
-│   │   ├── feature_config.hpp
-│   │   └── hardware_config.hpp
-│   ├── controllers/      # Controller interfaces
-│   │   ├── base_controller.hpp
-│   │   ├── controller_factory.hpp
-│   │   └── [specific controllers].hpp
-│   ├── storage/          # Storage interfaces
-│   │   ├── flash_manager.hpp
-│   │   └── persistent_storage.hpp
-│   ├── test/            # Test framework
-│   ├── midi.hpp         # MIDI protocol definitions
-│   └── util.hpp         # Utility functions
-├── src/                 # Implementation files
-│   ├── nexus_midi.ino   # Main program entry
-│   ├── config/          # Configuration implementations
-│   ├── controllers/     # Controller implementations
-│   ├── storage/         # Storage implementations
-│   └── test/           # Test implementations
-└── docs/               # Documentation
-    └── PC_CC_MAPPING_CONFIG.md
-```
-
 ## Memory Considerations
 
 This project is optimized for the MSP430G2553's limited resources:
@@ -205,7 +134,7 @@ Contributions are welcome! Please follow these guidelines:
 
 ## License
 
-This project is provided as-is for educational and personal use. Please check the repository for specific license information.
+This project is provided as-is for educational and personal use under the MIT license.
 
 ## Support and Contact
 
@@ -214,10 +143,4 @@ For questions, issues, or contributions:
 - Check existing documentation in the `/docs` directory
 - Review the test cases for usage examples
 
-## Acknowledgments
-
-- **Original Nexus Codebase**: Created by [Cycfi Research](https://www.cycfi.com/)
-- **Platform**: Built with PlatformIO and the MSP430 platform
-- **Framework**: Leverages the energia framework for Arduino-compatible development on MSP430 microcontrollers
-
-This refactoring project respects and preserves the innovative design of the original Cycfi Nexus while extending its capabilities for modern use cases.
+This refactoring project respects and preserves the innovative design of the original Cycfi Nexus GK while extending its capabilities for my own purposes.
