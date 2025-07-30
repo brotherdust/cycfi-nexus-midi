@@ -13,6 +13,7 @@
 #include "util.hpp"
 #include "storage/flash_manager.hpp"
 #include "storage/persistent_storage.hpp"
+#include "config/feature_config.hpp"
 #include <stdint.h>
 
 // Global MIDI output stream declaration
@@ -101,6 +102,22 @@ private:
     cycfi::repeat_button<> btn_down;
     cycfi::repeat_button<> grp_btn_up;
     cycfi::repeat_button<> grp_btn_down;
+    
+#ifdef NEXUS_ENABLE_PC_CC_MAPPING
+    /**
+     * @brief Send CC messages 102-106 in one-hot encoding based on curr value
+     *
+     * Maps the 5-way switch position (0-4) to CC messages:
+     * - Position 0: CC 102 = 127, CC 103-106 = 0
+     * - Position 1: CC 103 = 127, CC 102,104-106 = 0
+     * - Position 2: CC 104 = 127, CC 102-103,105-106 = 0
+     * - Position 3: CC 105 = 127, CC 102-104,106 = 0
+     * - Position 4: CC 106 = 127, CC 102-105 = 0
+     *
+     * This method is only compiled when NEXUS_ENABLE_PC_CC_MAPPING is defined.
+     */
+    void send_cc_mapping();
+#endif // NEXUS_ENABLE_PC_CC_MAPPING
 };
 
 } // namespace controllers

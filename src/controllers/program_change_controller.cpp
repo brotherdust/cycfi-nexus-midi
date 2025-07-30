@@ -35,7 +35,24 @@ uint8_t ProgramChangeController::get() {
 
 void ProgramChangeController::transmit() {
     midi_out << midi::program_change{0, get()};
+#ifdef NEXUS_ENABLE_PC_CC_MAPPING
+    send_cc_mapping();  // Send CC mapping after program change
+#endif
 }
+
+#ifdef NEXUS_ENABLE_PC_CC_MAPPING
+void ProgramChangeController::send_cc_mapping() {
+    // Only map if curr is in valid range 0-4
+    if (curr >= 0 && curr <= 4) {
+        // Send all 5 CC messages to ensure proper one-hot encoding
+        for (uint8_t i = 0; i < 5; ++i) {
+            uint8_t cc_num = NEXUS_PC_CC_MAPPING_START + i;  // CC start to start+4
+            uint8_t cc_val = (i == curr) ? 127 : 0;  // 127 for active, 0 for others
+            midi_out << midi::control_change{0, static_cast<midi::cc::controller>(cc_num), cc_val};
+        }
+    }
+}
+#endif // NEXUS_ENABLE_PC_CC_MAPPING
 
 void ProgramChangeController::operator()(uint32_t val_) {
     uint32_t curr_ = curr * 205;
