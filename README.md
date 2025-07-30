@@ -10,7 +10,7 @@ Based on the original [Cycfi Research Nexus GK](https://www.cycfi.com/) codebase
 
 This refactoring transforms the original monolithic Nexus GK firmware into a modular architecture while adding switch-to-CC mapping capabilities. Built with PlatformIO for MSP430G2553 (16KB Flash, 512B RAM).
 
-### Key Enhancement: Switch-to-CC Mapping
+### Key Enhancement: Switch-to-CC Mapping (Enabled by Default)
 - One-hot encoding: only one CC number active per switch position
 - Configurable CC range mapping
 - Real-time CC transmission on switch changes
@@ -29,6 +29,7 @@ This refactoring transforms the original monolithic Nexus GK firmware into a mod
 - **Namespace Organization**: Structured `nexus::` hierarchy
 - **Test Framework**: Built-in validation
 - **PlatformIO Migration**: Replaced Energia IDE with modern toolchain for better dependency management and debugging
+- **Immediate Debounce Mode** (Enabled by Default): Responsive button handling with immediate press detection and debounced release
 
 ## Technical Stack
 

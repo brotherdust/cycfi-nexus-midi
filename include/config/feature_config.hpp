@@ -95,4 +95,49 @@
     #endif
 #endif
 
+/**
+ * @def NEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+ * @brief Enable immediate press detection with release-only debouncing
+ *
+ * When enabled, button handling classes will use immediate press detection
+ * while still debouncing the release event. This provides more responsive
+ * button presses while preventing false release triggers from switch bounce.
+ *
+ * Benefits:
+ * - Instant button press response for better user experience
+ * - Reliable release detection prevents false triggers
+ * - No additional memory overhead
+ * - Backward compatible - existing code works unchanged
+ *
+ * To disable: Comment out or remove the #define below
+ * To enable: Uncomment the #define below
+ *
+ * Memory impact: None (uses same memory as standard debouncing)
+ * Dependencies: None
+ */
+#define NEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+
+/**
+ * @section BUILD_FLAG_OVERRIDES_DEBOUNCE
+ *
+ * Build flags can override the immediate debounce configuration.
+ *
+ * Example usage in platformio.ini:
+ *   build_flags = -DNEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+ *
+ * Or to force disable:
+ *   build_flags = -DNEXUS_DISABLE_IMMEDIATE_DEBOUNCE
+ */
+
+// Handle build flag overrides for immediate debounce
+#ifdef NEXUS_DISABLE_IMMEDIATE_DEBOUNCE
+    #undef NEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+#endif
+
+#ifdef NEXUS_FORCE_IMMEDIATE_DEBOUNCE
+    #ifndef NEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+        #define NEXUS_ENABLE_IMMEDIATE_DEBOUNCE
+    #endif
+#endif
+
 #endif // NEXUS_FEATURE_CONFIG_HPP
