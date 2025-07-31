@@ -140,4 +140,121 @@
     #endif
 #endif
 
+/**
+ * @def NEXUS_ENABLE_DEBUG_LOGGING
+ * @brief Enable MIDI SysEx debug logging
+ *
+ * When enabled, debug messages are sent via MIDI SysEx for real-time monitoring.
+ * Uses a ring buffer to ensure non-blocking operation and maintains compatibility
+ * with real-time MIDI performance.
+ *
+ * Features:
+ * - Non-blocking operation via ring buffer
+ * - Granular category control
+ * - 7-bit ASCII compliant for MIDI SysEx
+ * - Zero overhead when disabled
+ *
+ * To disable: Comment out or remove the #define below
+ * To enable: Uncomment the #define below
+ *
+ * Memory impact: ~100 bytes RAM (64-byte buffer + overhead)
+ * Dependencies: None
+ */
+// #define NEXUS_ENABLE_DEBUG_LOGGING
+
+#ifdef NEXUS_ENABLE_DEBUG_LOGGING
+    /**
+     * @def NEXUS_DEBUG_BUFFER_SIZE
+     * @brief Size of debug message ring buffer in bytes
+     *
+     * Must be a power of 2 and at least 32 bytes.
+     * Increase if experiencing buffer overflow.
+     *
+     * Default: 64 bytes
+     */
+    #ifndef NEXUS_DEBUG_BUFFER_SIZE
+        #define NEXUS_DEBUG_BUFFER_SIZE 64
+    #endif
+    
+    /**
+     * @def NEXUS_DEBUG_LOG_LEVEL
+     * @brief Minimum log level to compile
+     *
+     * Messages below this level are excluded at compile time.
+     * Values: TRACE(0), DEBUG(1), INFO(2), WARNING(3), ERROR(4), FATAL(5)
+     *
+     * Default: INFO (2)
+     */
+    #ifndef NEXUS_DEBUG_LOG_LEVEL
+        #define NEXUS_DEBUG_LOG_LEVEL 2
+    #endif
+    
+    /**
+     * @section DEBUG_CATEGORY_CONTROL
+     * @brief Granular control over debug categories
+     *
+     * Enable specific debug categories by defining the corresponding macros.
+     * If no categories are specified, all are enabled by default.
+     *
+     * Available categories:
+     * - NEXUS_LOG_ENABLE_SYSTEM   : System initialization, startup, shutdown
+     * - NEXUS_LOG_ENABLE_CONTROL  : Controller value changes
+     * - NEXUS_LOG_ENABLE_MEMORY   : Memory usage statistics
+     * - NEXUS_LOG_ENABLE_ERROR    : Error conditions
+     * - NEXUS_LOG_ENABLE_PERF     : Performance metrics
+     * - NEXUS_LOG_ENABLE_DEBUG    : General debug messages
+     * - NEXUS_LOG_ENABLE_CONFIG   : Configuration changes
+     * - NEXUS_LOG_ENABLE_STORAGE  : Flash storage operations
+     * - NEXUS_LOG_ENABLE_ALL      : Enable all categories
+     *
+     * Example configurations:
+     * @code
+     * // Debug only system initialization and errors
+     * #define NEXUS_LOG_ENABLE_SYSTEM
+     * #define NEXUS_LOG_ENABLE_ERROR
+     *
+     * // Debug controller behavior
+     * #define NEXUS_LOG_ENABLE_CONTROL
+     * #define NEXUS_LOG_ENABLE_MEMORY
+     *
+     * // Enable all categories
+     * #define NEXUS_LOG_ENABLE_ALL
+     * @endcode
+     */
+    
+    // Uncomment to enable specific categories
+    // #define NEXUS_LOG_ENABLE_SYSTEM
+    // #define NEXUS_LOG_ENABLE_CONTROL
+    // #define NEXUS_LOG_ENABLE_MEMORY
+    // #define NEXUS_LOG_ENABLE_ERROR
+    // #define NEXUS_LOG_ENABLE_PERF
+    // #define NEXUS_LOG_ENABLE_DEBUG
+    // #define NEXUS_LOG_ENABLE_CONFIG
+    // #define NEXUS_LOG_ENABLE_STORAGE
+    // #define NEXUS_LOG_ENABLE_ALL
+#endif
+
+/**
+ * @section BUILD_FLAG_OVERRIDES_DEBUG
+ *
+ * Build flags can override the debug logging configuration.
+ *
+ * Example usage in platformio.ini:
+ *   build_flags = -DNEXUS_ENABLE_DEBUG_LOGGING -DNEXUS_LOG_ENABLE_ERROR
+ *
+ * Or to force disable:
+ *   build_flags = -DNEXUS_DISABLE_DEBUG_LOGGING
+ */
+
+// Handle build flag overrides for debug logging
+#ifdef NEXUS_DISABLE_DEBUG_LOGGING
+    #undef NEXUS_ENABLE_DEBUG_LOGGING
+#endif
+
+#ifdef NEXUS_FORCE_DEBUG_LOGGING
+    #ifndef NEXUS_ENABLE_DEBUG_LOGGING
+        #define NEXUS_ENABLE_DEBUG_LOGGING
+    #endif
+#endif
+
 #endif // NEXUS_FEATURE_CONFIG_HPP
