@@ -20,11 +20,12 @@
 - Commit after completing each todo list item
 - Stage and commit immediately after successful implementation
 - Each commit should represent one logical unit of work
+- Combine git add and commit in a single command to save tokens:
+  `git add file1 file2 && git commit -m "type: description"`
 - Example workflow:
   1. Complete "Implement ring buffer template class"
-  2. Stage: `git add include/debug/ring_buffer.hpp`
-  3. Commit: `git commit -m "feat: add ring buffer for debug logging"`
-  4. Move to next todo item
+  2. Stage and commit: `git add include/debug/ring_buffer.hpp && git commit -m "feat: add ring buffer for debug logging"`
+  3. Move to next todo item
 - This ensures incremental progress is saved and trackable
 
 ## File Creation Policy
