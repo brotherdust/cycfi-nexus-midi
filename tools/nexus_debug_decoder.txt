@@ -1,0 +1,187 @@
+# Nexus MIDI Controller Debug Message Decoder for SysEx Librarian
+# 
+# This template decodes debug messages sent via MIDI SysEx from the Nexus controller.
+# Copy this content into SysEx Librarian's decoder template editor.
+#
+# Message Format:
+# F0 00 7D 4E [MSG_TYPE] [TIMESTAMP_MSB] [TIMESTAMP_LSB] [DATA1] [DATA2] [DATA3] [DATA4] [DATA5] F7
+#
+# Where:
+# - F0: SysEx start
+# - 00: Extended manufacturer ID byte
+# - 7D 4E: Manufacturer ID 0x7D4E (non-commercial/educational)
+# - MSG_TYPE: Message category (1 byte)
+# - TIMESTAMP: 14-bit timestamp in milliseconds (2 bytes, 7-bit each)
+# - DATA1-5: Message-specific data (5 bytes)
+# - F7: SysEx end
+
+# Manufacturer ID check
+manufacturer "Nexus Debug" {
+    # Match our specific manufacturer ID
+    id 00 7D 4E
+}
+
+# Message type definitions
+messageType "System Event" {
+    id 01
+    # Decode system events
+    data {
+        0: enum "Event" {
+            01: "Startup"
+            02: "Shutdown"
+            03: "Mode Change"
+            04: "Calibration Start"
+            05: "Calibration End"
+            10: "Test Mode Enter"
+            11: "Test Mode Exit"
+        }
+        1: hex "Parameter 1"
+        2: hex "Parameter 2"
+    }
+}
+
+messageType "Controller Change" {
+    id 02
+    data {
+        0: enum "Event Type" {
+            01: "Controller Change"
+            02: "Controller Calibrated"
+        }
+        1: enum "Controller" {
+            01: "Program Change"
+            02: "Volume"
+            03: "Pitch Bend"
+            04: "Modulation"
+            05: "FX1"
+            06: "FX2"
+            07: "Sustain"
+            08: "Bank Select"
+        }
+        2: dec "Value (0-127)"
+    }
+}
+
+messageType "Memory Usage" {
+    id 03
+    data {
+        0: dec "Usage Percent"
+        1-2: dec16 "Free Bytes" # Combines two 7-bit values
+    }
+}
+
+messageType "Error" {
+    id 04
+    data {
+        0: enum "Error Code" {
+            01: "Memory Allocation Failed"
+            02: "Flash Write Failed"
+            03: "Flash Read Failed"
+            04: "Invalid Parameter"
+            05: "Buffer Overflow"
+            06: "Calibration Failed"
+            10: "Debug Buffer Overflow"
+        }
+        1: hex "Context"
+    }
+}
+
+messageType "Debug String" {
+    id 05
+    data {
+        0-3: ascii "Message (4 chars)"
+        4: dec "Value"
+    }
+}
+
+messageType "Configuration" {
+    id 06
+    data {
+        0: enum "Config Event" {
+            01: "Bank Changed"
+            02: "Channel Changed"
+            03: "CC Mapping Changed"
+            04: "Calibration Updated"
+        }
+        1: dec "Parameter 1"
+        2: dec "Parameter 2"
+    }
+}
+
+messageType "Storage Operation" {
+    id 07
+    data {
+        0: enum "Storage Event" {
+            01: "Flash Read"
+            02: "Flash Write"
+            03: "Flash Erase"
+            04: "Load Settings"
+            05: "Save Settings"
+        }
+        1-2: hex16 "Address" # 14-bit address
+        3: hex "Value"
+    }
+}
+
+messageType "Performance Metric" {
+    id 08
+    data {
+        0: enum "Metric Type" {
+            01: "Loop Time (ms)"
+            02: "CPU Usage (%)"
+            03: "Message Rate"
+            04: "Buffer Usage (%)"
+        }
+        1: dec "Value"
+    }
+}
+
+# Global timestamp decoder
+# All messages have timestamp at bytes 5-6 (after manufacturer ID and message type)
+timestamp {
+    position 5-6
+    format "14-bit milliseconds"
+    # Timestamp = (byte5 << 7) | byte6
+    # Wraps around every 16.383 seconds
+}
+
+# Display format
+display {
+    # Show timestamp, message type, and decoded data
+    format "[%timestamp%ms] %messageType%: %data%"
+}
+
+# Color coding for different message types
+colors {
+    "System Event": green
+    "Controller Change": blue
+    "Memory Usage": yellow
+    "Error": red
+    "Debug String": gray
+    "Configuration": cyan
+    "Storage Operation": magenta
+    "Performance Metric": orange
+}
+
+# Filter presets
+filters {
+    "Errors Only" {
+        messageType: "Error"
+    }
+    "Memory Monitoring" {
+        messageType: "Memory Usage" OR "Performance Metric"
+    }
+    "Controller Activity" {
+        messageType: "Controller Change"
+    }
+    "System Events" {
+        messageType: "System Event" OR "Configuration"
+    }
+}
+
+# Notes for SysEx Librarian users:
+# 1. Set your MIDI input to receive from the Nexus controller
+# 2. Enable SysEx message reception
+# 3. Load this template in the decoder view
+# 4. Debug messages will be automatically decoded and displayed
+# 5. Use filters to focus on specific message types
+# 6. Timestamp wraps every ~16 seconds (14-bit @ 1ms resolution)
