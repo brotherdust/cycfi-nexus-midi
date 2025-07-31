@@ -11,6 +11,7 @@
 #include "midi.hpp"
 #include "util.hpp"
 #include "config/hardware_config.hpp"
+#include "debug/debug_macros.hpp"
 #include <stdint.h>
 
 // Global MIDI output stream declaration
@@ -43,6 +44,9 @@ public:
         if (gt(val)) {
             uint8_t const msb = val >> 3;
             uint8_t const lsb = (val << 4) & 0x7F;
+            
+            // Log the control change
+            NEXUS_LOG_CONTROL(ctrl, msb);
             
             // Use global midi_out
             midi_out << cycfi::midi::control_change{0, ctrl_lsb, lsb};
