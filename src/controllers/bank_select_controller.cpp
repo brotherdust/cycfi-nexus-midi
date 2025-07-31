@@ -7,6 +7,7 @@
  */
 #include <Arduino.h>  // Must be first for Arduino functions
 #include "controllers/bank_select_controller.hpp"
+#include "debug/debug_macros.hpp"
 
 using namespace cycfi;
 
@@ -29,6 +30,9 @@ void BankSelectController::save() {
 }
 
 void BankSelectController::transmit() {
+    // Log bank select value
+    NEXUS_LOG_CONTROL(nexus::debug::CTRL_ID_BANK, curr);
+    
     midi_out << midi::control_change{0, midi::cc::bank_select, curr};
 }
 
