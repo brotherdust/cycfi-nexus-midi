@@ -16,6 +16,7 @@
 
 #ifdef NEXUS_ENABLE_DEBUG_LOGGING
 
+#include <Arduino.h>  // For millis()
 #include <stdint.h>
 #include "debug/ring_buffer.hpp"
 #include "debug/debug_categories.hpp"
@@ -246,17 +247,14 @@ public:
     }
 };
 
-// Static member definitions
-RingBuffer<NEXUS_DEBUG_BUFFER_SIZE> DebugLogger::buffer;
-uint32_t DebugLogger::last_timestamp = 0;
-
 // Memory calculation implementation
 inline uint16_t DebugLogger::get_free_memory() {
-    extern uint8_t __heap_start;
-    extern uint8_t* __brkval;
-    uint8_t* heap_end = __brkval ? __brkval : &__heap_start;
-    uint8_t stack_top;
-    return &stack_top - heap_end;
+    // For MSP430, we can estimate free memory by checking stack pointer
+    // This is a simplified approach - actual implementation may vary
+    uint8_t stack_var;
+    // Estimate based on stack location (grows down from top of RAM)
+    // MSP430G2553 has RAM from 0x0200 to 0x03FF (512 bytes)
+    return ((uint16_t)&stack_var - 0x0200);
 }
 
 inline uint8_t DebugLogger::get_memory_usage_percent() {

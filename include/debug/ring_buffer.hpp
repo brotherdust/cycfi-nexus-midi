@@ -28,15 +28,12 @@ namespace nexus { namespace debug {
 template<uint8_t SIZE>
 class RingBuffer {
 private:
-    // Compile-time validation
-    // Note: C++98 doesn't have static_assert, so we use template trick
-    template<bool> struct CompileTimeError;
-    template<> struct CompileTimeError<true> {};
-    
-    // Validate SIZE is power of 2
-    enum { 
-        IsPowerOfTwo = (SIZE & (SIZE - 1)) == 0,
-        IsMinimumSize = SIZE >= 32
+    // Compile-time validation using division by zero trick for C++98
+    enum {
+        IsPowerOfTwo = (SIZE & (SIZE - 1)) == 0 ? 1 : 0,
+        IsMinimumSize = SIZE >= 32 ? 1 : 0,
+        // This will cause division by zero compile error if conditions not met
+        ValidateSize = 1 / (IsPowerOfTwo * IsMinimumSize)
     };
     
     uint8_t buffer[SIZE];
@@ -49,9 +46,6 @@ public:
      * @brief Constructor
      */
     RingBuffer() : head(0), tail(0), overflow(false) {
-        // Force compile error if SIZE is invalid
-        CompileTimeError<IsPowerOfTwo>();
-        CompileTimeError<IsMinimumSize>();
     }
     
     /**
