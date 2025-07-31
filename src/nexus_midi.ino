@@ -17,6 +17,7 @@
 #include "storage/persistent_storage.hpp"
 #include "controllers/controller_factory.hpp"
 #include "test/test_runner.hpp"
+#include "debug/debug_macros.hpp"
 
 /**
  * @section TEST_DEFINES
@@ -96,9 +97,18 @@ void setup()
    nexus::config::initialize_pins();
 
    midi_out.start();
+   
+   // Initialize debug logging
+   NEXUS_LOG_INIT();
+   
+   // Log system startup
+   NEXUS_LOG_SYSTEM(nexus::debug::SYS_STARTUP, 0x02, 0x00);  // version 2.0
 
    // Initialize all controllers
    nexus::controllers::controllers.initialize();
+   
+   // Log memory after initialization
+   NEXUS_LOG_MEMORY();
 
    // Dump flash if requested
    nexus::test::test_runner.dump_flash();
@@ -132,7 +142,25 @@ void loop()
  */
 void loop()
 {
+   // Process controllers
    nexus::controllers::controllers.process_inputs();
+   
+   // Flush debug messages during idle time (required)
+   static uint32_t last_flush = 0;
+   uint32_t now = millis();
+   if (now - last_flush > 5) {  // Flush every 5ms for responsiveness
+      NEXUS_LOG_FLUSH();
+      last_flush = now;
+      
+      // Check for buffer overflow periodically
+      static uint32_t last_overflow_check = 0;
+      if (now - last_overflow_check > 100) {  // Check every 100ms
+         if (NEXUS_LOG_CHECK_OVERFLOW()) {
+            NEXUS_LOG_ERROR(nexus::debug::ERR_DEBUG_OVERFLOW);
+         }
+         last_overflow_check = now;
+      }
+   }
 }
 
 #endif // NEXUS_TEST
