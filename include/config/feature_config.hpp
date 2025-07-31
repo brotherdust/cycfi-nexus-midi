@@ -223,10 +223,10 @@
      */
     
     // Uncomment to enable specific categories
-    #define NEXUS_LOG_ENABLE_SYSTEM
-    #define NEXUS_LOG_ENABLE_CONTROL
-    #define NEXUS_LOG_ENABLE_MEMORY
-    #define NEXUS_LOG_ENABLE_ERROR
+    // #define NEXUS_LOG_ENABLE_SYSTEM
+    // #define NEXUS_LOG_ENABLE_CONTROL
+    // #define NEXUS_LOG_ENABLE_MEMORY
+    // #define NEXUS_LOG_ENABLE_ERROR
     // #define NEXUS_LOG_ENABLE_PERF
     // #define NEXUS_LOG_ENABLE_DEBUG
     // #define NEXUS_LOG_ENABLE_CONFIG
