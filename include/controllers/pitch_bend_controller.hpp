@@ -12,6 +12,7 @@
 #include "midi.hpp"
 #include "util.hpp"
 #include "config/hardware_config.hpp"
+#include "debug/debug_macros.hpp"
 
 // Global MIDI output stream declaration
 extern cycfi::midi::midi_stream midi_out;
@@ -34,7 +35,12 @@ public:
     void operator()(uint32_t val_) {
         uint32_t val = lp2(lp1(val_));
         if (gt(val)) {
-            midi_out << cycfi::midi::pitch_bend{0, uint16_t{(val << 4) + (val % 16)}};
+            uint16_t pitch_val = uint16_t{(val << 4) + (val % 16)};
+            
+            // Log pitch bend value (use MSB for logging)
+            NEXUS_LOG_CONTROL(nexus::debug::CTRL_ID_PITCH, pitch_val >> 7);
+            
+            midi_out << cycfi::midi::pitch_bend{0, pitch_val};
         }
     }
 
