@@ -16,6 +16,17 @@
 - List files explicitly: `git add file1 file2 file3`
 - Review staged files before committing
 
+## Git Commit Frequency
+- Commit after completing each todo list item
+- Stage and commit immediately after successful implementation
+- Each commit should represent one logical unit of work
+- Example workflow:
+  1. Complete "Implement ring buffer template class"
+  2. Stage: `git add include/debug/ring_buffer.hpp`
+  3. Commit: `git commit -m "feat: add ring buffer for debug logging"`
+  4. Move to next todo item
+- This ensures incremental progress is saved and trackable
+
 ## File Creation Policy
 - Minimize unnecessary documentation files during active development
 - Wait for user confirmation before creating summary/progress files
