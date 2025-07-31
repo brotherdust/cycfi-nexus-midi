@@ -55,32 +55,133 @@ Where:
 ### 1. Debug Logger Class (`debug_logger.hpp`)
 - Singleton pattern for global access
 - Template-based for compile-time optimization
-- Circular buffer for message queuing (optional)
-- Direct-send mode for immediate transmission
+- Required ring buffer for non-blocking message queuing
+- Ensures MIDI performance is never impacted by debug logging
 
-### 2. Message Builder
+### 2. Ring Buffer Implementation (Required)
+- Fixed-size circular buffer (configurable size, default 64 bytes)
+- Lock-free design for interrupt safety
+- Overflow detection and reporting
+- Efficient byte-level operations
+- Guarantees non-blocking debug operations
+
+```cpp
+template<uint8_t SIZE>
+class RingBuffer {
+    uint8_t buffer[SIZE];
+    volatile uint8_t head;
+    volatile uint8_t tail;
+    
+public:
+    bool put(uint8_t data) {
+        uint8_t next = (head + 1) % SIZE;
+        if (next == tail) return false; // Buffer full
+        buffer[head] = data;
+        head = next;
+        return true;
+    }
+    
+    bool get(uint8_t& data) {
+        if (head == tail) return false; // Buffer empty
+        data = buffer[tail];
+        tail = (tail + 1) % SIZE;
+        return true;
+    }
+    
+    uint8_t available() const {
+        return (SIZE + head - tail) % SIZE;
+    }
+};
+```
+
+### 3. Message Builder
 - Efficient message construction with minimal allocations
 - Support for various data types (uint8_t, uint16_t, strings)
 - Automatic 7-bit encoding for SysEx compliance
+- Message fragmentation for ring buffer
 
-### 3. Integration Macros
+### 4. Integration Macros
 - `NEXUS_LOG(category, level, ...)` - Main logging macro
 - `NEXUS_LOG_VALUE(name, value)` - Log a named value
 - `NEXUS_LOG_ERROR(code)` - Log error with code
 - `NEXUS_LOG_MEMORY()` - Log current memory usage
+- `NEXUS_LOG_FLUSH()` - Force flush ring buffer
 
-### 4. Compile-Time Configuration
+### 5. Compile-Time Configuration
 - `NEXUS_ENABLE_DEBUG_LOGGING` - Master enable/disable
 - `NEXUS_DEBUG_LOG_LEVEL` - Minimum log level to compile
-- `NEXUS_DEBUG_BUFFER_SIZE` - Size of message buffer (if used)
+- `NEXUS_DEBUG_BUFFER_SIZE` - Ring buffer size (default 64, minimum 32)
+
+#### Granular Category Control
+Each logging category can be individually enabled/disabled at compile time:
+- `NEXUS_LOG_ENABLE_SYSTEM` - System initialization, startup, shutdown
+- `NEXUS_LOG_ENABLE_CONTROL` - Controller value changes
+- `NEXUS_LOG_ENABLE_MEMORY` - Memory usage statistics
+- `NEXUS_LOG_ENABLE_ERROR` - Error conditions
+- `NEXUS_LOG_ENABLE_PERF` - Performance metrics
+- `NEXUS_LOG_ENABLE_DEBUG` - General debug messages
+- `NEXUS_LOG_ENABLE_CONFIG` - Configuration changes
+- `NEXUS_LOG_ENABLE_STORAGE` - Flash storage operations
+
+Example configurations:
+```cpp
+// Debug only system initialization
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_SYSTEM
+#define NEXUS_LOG_ENABLE_ERROR
+
+// Debug controllers and memory
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_CONTROL
+#define NEXUS_LOG_ENABLE_MEMORY
+
+// Enable all categories (default if none specified)
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_ALL
+```
 
 ## Memory Optimization Strategies
 
 1. **Static String Storage**: Use PROGMEM/Flash for string literals
-2. **Minimal Buffer Usage**: Direct transmission when possible
+2. **Ring Buffer Usage**: Configurable size, can be disabled for direct transmission
 3. **Compile-Time Filtering**: Exclude debug code based on log level
 4. **Bit-Packing**: Pack multiple values into single bytes where possible
 5. **Conditional Compilation**: Zero overhead when disabled
+
+### MSP430 Memory Calculation
+
+For the MSP430G2553 with 512 bytes of RAM:
+- **Stack grows down** from top of RAM (0x03FF)
+- **Heap grows up** from end of .bss section
+- **Free memory** = Stack pointer - Top of heap
+
+```cpp
+// Get free memory between heap and stack
+uint16_t get_free_memory() {
+    extern uint8_t __heap_start;
+    extern uint8_t* __brkval;
+    uint8_t* heap_end = __brkval ? __brkval : &__heap_start;
+    uint8_t stack_top;
+    return &stack_top - heap_end;
+}
+
+// Calculate memory usage percentage
+uint8_t get_memory_usage_percent() {
+    uint16_t free = get_free_memory();
+    uint16_t total = 512; // MSP430G2553 RAM size
+    return ((total - free) * 100) / total;
+}
+```
+
+### Ring Buffer Integration (Required Component)
+
+The ring buffer ensures non-blocking debug logging:
+1. **All logging**: Goes through ring buffer (fast, non-blocking)
+2. **Main loop**: Flushes buffer to MIDI output during idle time
+3. **Overflow handling**: Oldest messages discarded, overflow flag set
+4. **Performance guarantee**: Debug logging never blocks MIDI operations
+
+The ring buffer is mandatory to prevent debug logging from interfering with real-time MIDI performance. Without it, SysEx transmission could cause timing issues.
 
 ## Example Debug Messages
 

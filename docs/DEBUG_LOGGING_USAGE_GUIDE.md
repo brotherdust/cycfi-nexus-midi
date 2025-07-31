@@ -6,7 +6,7 @@
 
 Add to `platformio.ini`:
 ```ini
-build_flags = 
+build_flags =
     -std=gnu++0x
     -D__SINGLE_PRECISION__=1
     -Wno-overflow
@@ -15,12 +15,32 @@ build_flags =
     -fdata-sections
     -Wl,--gc-sections
     -DNEXUS_ENABLE_DEBUG_LOGGING    ; Enable debug logging
+    -DNEXUS_DEBUG_BUFFER_SIZE=64    ; Buffer size (optional, default 64)
+    
+    # Granular category control (optional)
+    -DNEXUS_LOG_ENABLE_SYSTEM       ; System init, startup, shutdown
+    -DNEXUS_LOG_ENABLE_CONTROL      ; Controller value changes
+    -DNEXUS_LOG_ENABLE_ERROR        ; Error conditions
 ```
 
 Or define in `include/config/feature_config.hpp`:
 ```cpp
 #define NEXUS_ENABLE_DEBUG_LOGGING
+
+// Optional: Enable specific categories only
+#define NEXUS_LOG_ENABLE_SYSTEM   // System initialization
+#define NEXUS_LOG_ENABLE_CONTROL  // Controller changes
+#define NEXUS_LOG_ENABLE_MEMORY   // Memory statistics
+#define NEXUS_LOG_ENABLE_ERROR    // Error conditions
+
+// Or enable all categories (default if none specified)
+#define NEXUS_LOG_ENABLE_ALL
 ```
+
+**Note**:
+- Debug logging uses a mandatory ring buffer to ensure non-blocking operation
+- All string data is automatically converted to 7-bit ASCII for SysEx compliance
+- If no categories are specified, all categories are enabled by default
 
 ### 2. Set Up MIDI Monitoring
 
@@ -30,6 +50,27 @@ Or define in `include/config/feature_config.hpp`:
 4. Set filter to show messages starting with `F0 7D 4E 45 58`
 
 ## Using Debug Macros
+
+### Initialization (Required)
+```cpp
+void setup() {
+    // Initialize debug logging first
+    NEXUS_LOG_INIT();
+    
+    // Your setup code...
+}
+
+void loop() {
+    // Your main code...
+    
+    // Flush debug buffer regularly (required!)
+    static uint32_t last_flush = 0;
+    if (millis() - last_flush > 5) {
+        NEXUS_LOG_FLUSH();
+        last_flush = millis();
+    }
+}
+```
 
 ### System Events
 ```cpp
@@ -235,10 +276,46 @@ bool save_config() {
 ## Memory Usage Guidelines
 
 - Each log call: ~20-30 bytes of code
+- Ring buffer: 64 bytes RAM (required, configurable 32-256)
 - No dynamic memory allocation
 - Stack usage: ~10 bytes per call
-- Total overhead: ~200-300 bytes when enabled
+- Total overhead: ~300-400 bytes code + buffer RAM when enabled
 - Zero overhead when disabled
+
+### Granular Category Control
+
+You can minimize code size by enabling only needed categories:
+
+```cpp
+// Minimal debugging - only errors
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_ERROR
+
+// Debug controllers only
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_CONTROL
+#define NEXUS_LOG_ENABLE_MEMORY
+
+// System initialization debugging
+#define NEXUS_ENABLE_DEBUG_LOGGING
+#define NEXUS_LOG_ENABLE_SYSTEM
+#define NEXUS_LOG_ENABLE_ERROR
+```
+
+Each disabled category saves approximately 30-50 bytes of code space.
+
+## String Handling and 7-bit Safety
+
+All string data sent via SysEx is automatically converted to 7-bit ASCII:
+- Characters > 127 are masked to fit 7-bit range
+- The debug logger limits strings to 4 characters to save memory
+- Use short, meaningful identifiers for debug messages
+
+Example:
+```cpp
+NEXUS_LOG_DEBUG("INIT", 0x01);  // Good - 4 chars
+NEXUS_LOG_DEBUG("STARTUP", 0x01); // Truncated to "STAR"
+```
 
 ## Future Enhancements
 
@@ -253,3 +330,7 @@ bool save_config() {
 3. **Data Compression**
    - Run-length encoding for repeated values
    - Delta encoding for sequential data
+
+4. **Extended String Support**
+   - Variable-length string encoding
+   - String table for common messages
