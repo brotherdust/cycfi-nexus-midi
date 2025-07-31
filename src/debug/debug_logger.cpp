@@ -15,7 +15,6 @@ namespace nexus { namespace debug {
 
 // Static member definitions
 RingBuffer<NEXUS_DEBUG_BUFFER_SIZE> DebugLogger::buffer;
-uint32_t DebugLogger::last_timestamp = 0;
 
 }} // namespace nexus::debug
 
