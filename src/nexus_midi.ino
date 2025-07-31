@@ -103,6 +103,7 @@ void setup()
    
    // Log system startup
    NEXUS_LOG_SYSTEM(nexus::debug::SYS_STARTUP, 0x02, 0x00);  // version 2.0
+   
 
    // Initialize all controllers
    nexus::controllers::controllers.initialize();
