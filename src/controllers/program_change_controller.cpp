@@ -7,6 +7,7 @@
  */
 #include <Arduino.h>  // Must be first for Arduino functions
 #include "controllers/program_change_controller.hpp"
+#include "debug/debug_macros.hpp"
 
 using namespace cycfi;
 
@@ -34,7 +35,12 @@ uint8_t ProgramChangeController::get() {
 }
 
 void ProgramChangeController::transmit() {
-    midi_out << midi::program_change{0, get()};
+    uint8_t program = get();
+    
+    // Log the program change
+    NEXUS_LOG_CONTROL(nexus::debug::CTRL_ID_PROGRAM, program);
+    
+    midi_out << midi::program_change{0, program};
 #ifdef NEXUS_ENABLE_PC_CC_MAPPING
     send_cc_mapping();  // Send CC mapping after program change
 #endif
@@ -48,6 +54,10 @@ void ProgramChangeController::send_cc_mapping() {
         for (uint8_t i = 0; i < 5; ++i) {
             uint8_t cc_num = NEXUS_PC_CC_MAPPING_START + i;  // CC start to start+4
             uint8_t cc_val = (i == curr) ? 127 : 0;  // 127 for active, 0 for others
+            
+            // Log the CC mapping
+            NEXUS_LOG_CONTROL(cc_num, cc_val);
+            
             midi_out << midi::control_change{0, static_cast<midi::cc::controller>(cc_num), cc_val};
         }
     }
